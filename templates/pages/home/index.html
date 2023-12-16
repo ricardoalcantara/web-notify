@@ -1,0 +1,110 @@
+{{ define "pages/home/index.html" }}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Notify</title>
+    <script src="https://unpkg.com/htmx.org@1.9.9"
+        integrity="sha384-QFjmbokDn2DjBjq+fM+8LUIVrAgqcNW2s0PjAxHETgRn9l4fvX31ZxDxvwQnyMOX"
+        crossorigin="anonymous"></script>
+</head>
+
+<body>
+    <h1>Web Notify</h1>
+    <label for="user-id">UserId</label>
+    <input name="user-id" type="text">
+    <button hx-on:click="connect()" type="button">Connect</button>
+    <hr />
+    <ul id="listItems"></ul>
+    <hr />
+</body>
+
+<script>
+
+    async function fetchData(userId) {
+        const url = `http://localhost:28585/api/user/${userId}/token`;
+        let token
+        try {
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            token = data.token;
+            console.log('JSON Response:');
+            console.log(data);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+
+        return token
+    }
+
+
+    let eventSource
+    async function connect() {
+        if (eventSource) {
+            eventSource.close()
+        }
+
+        const userId = "1"
+        const token = await fetchData(userId);
+
+        eventSource = new EventSource(`http://localhost:18585/sse?token=${token}`);
+
+        eventSource.addEventListener('event', function (event) {
+            const data = JSON.parse(event.data)
+            console.log("on event : ", data)
+            log("on event : ", data)
+        });
+
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data)
+            console.log("on message : ", data)
+            log("on message : ", data)
+        }
+
+        eventSource.onerror = (error) => {
+            console.error('SSE error:', error)
+            log('SSE error:', error)
+        };
+
+        // Either this or the up one
+        eventSource.addEventListener('error', (error) => {
+            console.error('SSE error:', error)
+            log('SSE error:', error)
+        });
+
+        eventSource.onopen = () => {
+            clean()
+            console.log('SSE connection opened');
+            log('SSE connection opened');
+        };
+
+        eventSource.onclose = () => {
+            console.log('SSE connection closed');
+            log('SSE connection closed');
+        };
+    }
+
+    function clean() {
+        var ulElement = document.getElementById("listItems")
+        while (ulElement.firstChild) {
+            ulElement.removeChild(ulElement.firstChild);
+        }
+        log("Genesis")
+    }
+    function log(msg, data) {
+        var ulElement = document.getElementById("listItems")
+        var liElement = document.createElement("li")
+        liElement.textContent = msg + (data ? JSON.stringify(data) : "")
+        ulElement.appendChild(liElement)
+    }
+</script>
+
+</html>
+{{ end }}
